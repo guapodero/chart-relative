@@ -1,0 +1,10 @@
+[package]
+name = "mini-chart"
+version = "0.1.0"
+edition = "2021"
+description = "Compact bar charts in the terminal."
+repository = "https://github.com/guapodero/mini-chart"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+colored = "2"
