@@ -3,7 +3,7 @@
 //! # Examples
 //! labeled comparison
 //! ```
-//! use mini_chart::{params::*, Chart};
+//! use chart_relative::{params::*, Chart};
 //!
 //! let chart = Chart::new(
 //!    &[
@@ -16,7 +16,7 @@
 //!    }),
 //!    ChartOptions {
 //!        height: 16,
-//!        scale_preference: ScalePreference::Small,
+//!        view: ViewPreference::Bottom,
 //!        display: DisplayMode::Portrait {
 //!            labels: &[
 //!                "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
@@ -64,19 +64,18 @@ pub mod params {
 
     #[derive(Debug)]
     #[allow(missing_docs)]
-    pub enum ScalePreference {
+    pub enum ViewPreference {
         /// If any values smaller than `options.height * 8` exist in `data + compare.data`,
-        /// then display them.
-        /// Larger values will be indicated by `🢁`.
+        /// then display them. Larger values will be indicated by `🢁`.
         /// If smaller values don't exist, then show the large ones.
-        Small,
+        Bottom,
         /// If any values larger than `options.height * 8` exist in `data + compare.data`,
-        /// then display them.
-        /// Smaller values will be indicated by `🢃`.
+        /// then display them. Smaller values will be indicated by `🢃`.
         /// If larger values don't exist, then show the small ones.
-        Large,
+        Top,
     }
 
+    #[derive(Debug)]
     #[allow(missing_docs)]
     pub enum DisplayMode<'a> {
         /// Just the chart.
@@ -85,12 +84,13 @@ pub mod params {
         Portrait { labels: &'a [&'a str] },
     }
 
+    #[derive(Debug)]
     #[allow(missing_docs)]
     pub struct ChartOptions<'a> {
         /// The vertical size of the chart, in lines of text.
         pub height: u16,
         /// Determines how outliers are displayed.
-        pub scale_preference: ScalePreference,
+        pub view: ViewPreference,
         /// Determines how space surrounding the chart is used.
         pub display: DisplayMode<'a>,
     }
@@ -99,12 +99,13 @@ pub mod params {
         fn default() -> Self {
             Self {
                 height: 8,
-                scale_preference: ScalePreference::Large,
+                view: ViewPreference::Top,
                 display: DisplayMode::Compact,
             }
         }
     }
 
+    #[derive(Debug)]
     #[allow(missing_docs)]
     pub struct ChartComparison<'a> {
         /// Another slice of values to display next to `chart.data`.
@@ -240,8 +241,8 @@ impl<'a> Chart<'a> {
                     value => chars[(value - print_steps_start) as usize],
                 }
             };
-            for (i, (&pri_steps, cmp_steps)) in steps_zipped.iter().enumerate() {
-                match *cmp_steps {
+            for (i, &(&pri_steps, cmp_steps)) in steps_zipped.iter().enumerate() {
+                match cmp_steps {
                     None => {
                         let pri_char = if i % 2 == 0 {
                             to_print_char(pri_steps).to_string().bright_white()
@@ -305,7 +306,7 @@ impl<'a> Chart<'a> {
 
             for i in 0..max_rows {
                 for col in &label_cols {
-                    if let Some((offset, &label)) = col.get(i) {
+                    if let Some((offset, label)) = col.get(i) {
                         write!(
                             f,
                             // each column requires 17 characters
@@ -316,21 +317,17 @@ impl<'a> Chart<'a> {
                 }
                 writeln!(f)?;
             }
+        } else {
+            writeln!(f)?;
         }
 
         Ok(())
     }
 
     fn scale_to_steps(&self) -> (Vec<i16>, Option<Vec<i16>>) {
-        let ChartOptions {
-            height,
-            ref scale_preference,
-            ..
-        } = self.options;
-
         // determine the largest possible measurement that can be expressed within
         // `height` lines, in terms of steps.
-        let max_step_count: u16 = height * 8;
+        let max_step_count: u16 = self.options.height * 8;
 
         // determine the factor by which to scale all measurements,
         // so that the largest one fills the available vertical space.
@@ -354,15 +351,15 @@ impl<'a> Chart<'a> {
         let high_max = excessive.iter().max();
 
         // additional scale factor
-        let (show_excessive, scale_factor) = match (scale_preference, low_max, high_max) {
+        let (show_excessive, scale_factor) = match (&self.options.view, low_max, high_max) {
             // fit the chart to the largest small value
-            (ScalePreference::Small, Some(&&low_max), _)
-            | (ScalePreference::Large, Some(&&low_max), None) => {
+            (ViewPreference::Bottom, Some(&&low_max), _)
+            | (ViewPreference::Top, Some(&&low_max), None) => {
                 (false, max_step_count as f32 / low_max as f32)
             }
             // the fit the chart to the largest large value
-            (ScalePreference::Large, _, Some(&&high_max))
-            | (ScalePreference::Small, _, Some(&&high_max)) => {
+            (ViewPreference::Top, _, Some(&&high_max))
+            | (ViewPreference::Bottom, _, Some(&&high_max)) => {
                 (true, max_step_count as f32 / high_max as f32)
             }
             _ => unimplemented!(),
@@ -430,7 +427,7 @@ mod tests {
             None,
             ChartOptions {
                 height: 5,
-                scale_preference: ScalePreference::Large,
+                view: ViewPreference::Top,
                 display: DisplayMode::Compact,
             },
         );
@@ -444,7 +441,7 @@ mod tests {
             None,
             ChartOptions {
                 height: 5,
-                scale_preference: ScalePreference::Small,
+                view: ViewPreference::Bottom,
                 display: DisplayMode::Compact,
             },
         );
@@ -458,7 +455,7 @@ mod tests {
             None,
             ChartOptions {
                 height: 10,
-                scale_preference: ScalePreference::Large,
+                view: ViewPreference::Top,
                 display: DisplayMode::Compact,
             },
         );
@@ -478,7 +475,7 @@ mod tests {
             }),
             ChartOptions {
                 height: 16,
-                scale_preference: ScalePreference::Small,
+                view: ViewPreference::Bottom,
                 display: DisplayMode::Portrait {
                     labels: &[
                         "first",

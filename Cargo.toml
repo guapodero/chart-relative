@@ -1,10 +1,11 @@
 [package]
-name = "mini-chart"
+name = "chart-relative"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Compact bar charts in the terminal."
-repository = "https://github.com/guapodero/mini-chart"
+repository = "https://github.com/guapodero/chart-relative"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 colored = "2"
+auto-args = "0.3"
