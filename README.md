@@ -1,8 +1,36 @@
-# mini-chart
+# chart-relative
+A library and CLI tool for generating compact text-based charts.
 
-[![Crates.io](https://img.shields.io/crates/v/mini-chart.svg)](https://crates.io/crates/mini-chart)
-[![Docs.rs](https://docs.rs/mini-chart/badge.svg)](https://docs.rs/mini-chart)
-[![CI](https://github.com/guapodero/mini-chart/workflows/CI/badge.svg)](https://github.com/guapodero/mini-chart/actions)
+[![Crates.io](https://img.shields.io/crates/v/chart-relative.svg)](https://crates.io/crates/chart-relative)
+[![Docs.rs](https://docs.rs/chart-relative/badge.svg)](https://docs.rs/chart-relative)
+[![CI](https://github.com/guapodero/chart-relative/workflows/CI/badge.svg)](https://github.com/guapodero/chart-relative/actions)
+
+## Why
+I needed a simple way to visualize a small distribution of word counts and the effect of applying a filter.
+
+## Goals
+* Text output
+* Indicate outliers
+* Maximize information density
+
+## Examples
+```sh
+echo "4 104 889 5517 22861 73805 184473 369441 599945 800265 881140 801904 600813 370368 185082 73635 23325 5399 931 95 4" | tr ' ' '\n' | chart-relative --view-top
+```
+![bell.png](bell.png)
+
+```sh
+printf '%s\n' "4 1978" "104 3256" "889 5354" "5517 8789" "22861 14388" "73805 23449" "184473 37940" "369441 60686" "599945 95362" "800265 145940" "881140 215153" "801904 302032" "600813 400000" "370368 497967" "185082 584846" "73635 654059" "23325 704637" "5399 739313" "931 762059" "95 776550" "4 785611" | chart-relative --view-top
+```
+![bell_logistic.png](bell_logistic.png)
+
+More examples are available by running the tests.
+`cargo test -- --nocapture`
+
+## Related Work
+[lowcharts](https://crates.io/crates/lowcharts) can also be used to generate bar charts, and
+is more suitable for general purpose use. In contrast, chart-relative is useful for comparing
+two related data sets which may contain outliers.
 
 ## Installation
 
@@ -10,7 +38,7 @@
 
 * Install the rust toolchain in order to have cargo installed by following
   [this](https://www.rust-lang.org/tools/install) guide.
-* run `cargo install mini-chart`
+* run `cargo install chart-relative`
 
 ## License
 
