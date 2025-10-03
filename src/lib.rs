@@ -157,20 +157,6 @@ impl<'a> Chart<'a> {
     }
 
     fn render(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let ChartOptions {
-            height: height_lines,
-            display,
-            ..
-        } = &self.options;
-
-        // determine the character width to use for each bar based on
-        // how many characters are required to label it with a numeric offset
-        let bar_width_chars = if self.data.len() <= 10 { 1 } else { 2 };
-
-        // display heights are calculated in terms of "steps"
-        // a step is the height of this character: ▁ (8 per line)
-        let chars = " ▁▂▃▄▅▆▇█🢃🢁⨯".chars().collect::<Vec<_>>();
-
         let (data_steps, cmp_data_steps) = self.scale_to_steps();
         let steps_zipped: Vec<(&i16, Option<&i16>)> = match cmp_data_steps {
             Some(ref cmp_data_steps) => data_steps
@@ -205,16 +191,40 @@ impl<'a> Chart<'a> {
             max_visible = std::cmp::max(max_visible, max_visible_cmp);
         }
 
+        let get_print_char = |layer_num: u16, steps_count: i16| -> char {
+            // display heights are calculated in terms of "steps"
+            // a step is the height of this character: ▁
+            // each layer corresponds to a line of text, or 8 steps
+            let chars = " ▁▂▃▄▅▆▇█🢃🢁⨯".chars().collect::<Vec<_>>();
+
+            // determine the range of steps corresponding to this layer
+            // examples: (16,24] (8,16] (0,8]
+            let print_steps_start = (layer_num * 8) as i16;
+            let print_steps_end = ((layer_num + 1) * 8) as i16;
+
+            match steps_count {
+                0 if layer_num == 0 => chars[11],
+                -1 if layer_num == 0 => chars[9],
+                -2 => chars[10],
+                below if below <= print_steps_start => chars[0],
+                above if above > print_steps_end => chars[8],
+                value => chars[(value - print_steps_start) as usize],
+            }
+        };
+
+        // determine the character width to use for each bar based on
+        // how many characters are required to label it with a numeric offset
+        let bar_width_chars = if self.data.len() <= 10 { 1 } else { 2 };
+
         let tick_spacer = max_visible
             .to_string()
             .chars()
             .map(|_| " ")
             .collect::<String>();
 
-        // print data_steps in layers, from top to bottom.
-        // each layer corresponds to a line of text, or 8 steps
-        for layer_num in (0..*height_lines).rev() {
-            if layer_num == height_lines - 1 {
+        let mut write_layer = |layer_num: u16| -> std::fmt::Result {
+            // write left sidebar
+            if layer_num == self.options.height - 1 {
                 write!(f, "{max_visible}│")?;
             } else if layer_num == 0 {
                 let gap = (0..tick_spacer.len() - min_visible.to_string().len())
@@ -225,29 +235,15 @@ impl<'a> Chart<'a> {
                 write!(f, "{tick_spacer}│")?;
             };
 
-            // determine the range of steps corresponding to this layer
-            // examples: (16,24] (8,16] (0,8]
-            let print_steps_start = (layer_num * 8) as i16;
-            let print_steps_end = ((layer_num + 1) * 8) as i16;
-
-            // print a layer of each bar, from left to right
-            let to_print_char = |steps_count: i16| -> char {
-                match steps_count {
-                    0 if layer_num == 0 => chars[11],
-                    -1 if layer_num == 0 => chars[9],
-                    -2 => chars[10],
-                    below if below <= print_steps_start => chars[0],
-                    above if above > print_steps_end => chars[8],
-                    value => chars[(value - print_steps_start) as usize],
-                }
-            };
+            // write a layer of each bar
             for (i, &(&pri_steps, cmp_steps)) in steps_zipped.iter().enumerate() {
+                let pri_char = get_print_char(layer_num, pri_steps).to_string();
                 match cmp_steps {
                     None => {
                         let pri_char = if i % 2 == 0 {
-                            to_print_char(pri_steps).to_string().bright_white()
+                            pri_char.bright_white()
                         } else {
-                            to_print_char(pri_steps).to_string().white()
+                            pri_char.white()
                         };
                         for _ in 0..bar_width_chars {
                             write!(f, "{pri_char}")?;
@@ -256,26 +252,31 @@ impl<'a> Chart<'a> {
                     // if comparison, each bar only needs to be 1 character wide
                     // for offsets to fit at the bottom
                     Some(&cmp_steps) => {
-                        write!(f, "{}", to_print_char(pri_steps).to_string().bright_white())
-                            .unwrap();
+                        write!(f, "{}", pri_char.bright_white())?;
 
+                        let cmp_char = get_print_char(layer_num, cmp_steps).to_string();
                         let pri_value = self.data[i];
                         let cmp_value = self.compare.as_ref().unwrap().data[i];
                         let cmp_char = if cmp_value <= pri_value {
-                            to_print_char(cmp_steps).to_string().bright_green()
+                            cmp_char.bright_green()
                         } else {
-                            to_print_char(cmp_steps).to_string().bright_red()
+                            cmp_char.bright_red()
                         };
-                        write!(f, "{cmp_char} ",).unwrap();
+                        write!(f, "{cmp_char} ",)?;
                     }
                 }
             }
 
             // move to layer below
-            writeln!(f)?;
+            writeln!(f)
+        };
+
+        // write layers
+        for layer_num in (0..self.options.height).rev() {
+            write_layer(layer_num)?;
         }
 
-        // print offsets
+        // write offsets
         write!(f, "{tick_spacer} ")?;
         let mut chart_width = tick_spacer.len() as u16;
         for i in 0..self.data.len() {
@@ -292,7 +293,7 @@ impl<'a> Chart<'a> {
             }
         }
 
-        if let DisplayMode::Portrait { labels } = display {
+        if let DisplayMode::Portrait { labels } = self.options.display {
             writeln!(f)?;
 
             // split labels into evenly-sized columns
@@ -359,7 +360,7 @@ impl<'a> Chart<'a> {
             }
             // the fit the chart to the largest large value
             (ViewPreference::Top, _, Some(&&high_max))
-            | (ViewPreference::Bottom, _, Some(&&high_max)) => {
+            | (ViewPreference::Bottom, None, Some(&&high_max)) => {
                 (true, max_step_count as f32 / high_max as f32)
             }
             _ => unimplemented!(),
@@ -421,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn test_excessive_value_too_small_for_height() {
+    fn test_value_too_small_for_top() {
         let chart = Chart::new(
             &[0, 6837, 18067, 352038],
             None,
@@ -431,11 +432,11 @@ mod tests {
                 display: DisplayMode::Compact,
             },
         );
-        println!("\nexcessive_value_too_small_for_height\n{chart}");
+        println!("\nvalue_too_small_for_top\n{chart}");
     }
 
     #[test]
-    fn test_prefer_small_but_only_large() {
+    fn test_view_bottom_with_only_large() {
         let chart = Chart::new(
             &[2332, 3232, 3244, 0],
             None,
@@ -445,11 +446,11 @@ mod tests {
                 display: DisplayMode::Compact,
             },
         );
-        println!("\nprefer_small_but_large\n{chart}");
+        println!("\nview_bottom_with_only_large\n{chart}");
     }
 
     #[test]
-    fn test_prefer_large_but_only_small() {
+    fn test_view_top_with_only_small() {
         let chart = Chart::new(
             &[23, 32, 44, 0],
             None,
@@ -459,7 +460,7 @@ mod tests {
                 display: DisplayMode::Compact,
             },
         );
-        println!("\nprefer_large_but_small\n{chart}");
+        println!("\nview_top_with_only_small\n{chart}");
     }
 
     #[test]
