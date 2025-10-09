@@ -10,5 +10,5 @@ categories = ["command-line-utilities"]
 edition = "2024"
 
 [dependencies]
-colored = "2"
+colored = "3"
 auto-args = "0.3"
