@@ -1,6 +1,6 @@
 [package]
 name = "chart-relative"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Daniel James Baumann <dan.james.baumann@gmail.com>"]
 description = "Compact bar charts in the terminal."
 license = "MIT OR Apache-2.0"
@@ -8,6 +8,7 @@ repository = "https://github.com/guapodero/chart-relative"
 keywords = ["console", "visualization"]
 categories = ["command-line-utilities"]
 edition = "2024"
+include = ["src/**/*", "LICENSE-*", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 colored = "2"
